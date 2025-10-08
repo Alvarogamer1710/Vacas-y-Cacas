@@ -1,175 +1,131 @@
+#!/usr/bin/env python3
+# Juego de la vaca y el granjero
+# Version mas sencilla y estilo estudiante
+
 import random
 import time
-import sys
 
+HIERBA = '"'
+VACIO = ' '
+CACA = 'O'
+VACA = 'V'
+TRACTOR = 'T'
 
-# -----------------------------------------
-# Clase Terreno
-# -----------------------------------------
-class Terreno:
-    def __init__(self, ancho, alto):
-        self.ancho = ancho
-        self.alto = alto
-        self.celdas = []
-        for _ in range(alto):
-            fila = []
-            for _ in range(ancho):
-                fila.append('"')  # hierba inicial
-            self.celdas.append(fila)
-
-    def dentro(self, fila, col):
-        return fila >= 0 and fila < self.alto and col >= 0 and col < self.ancho
-
-    def get(self, fila, col):
-        return self.celdas[fila][col]
-
-    def set(self, fila, col, valor):
-        self.celdas[fila][col] = valor
-
-    def hay_hierba(self):
-        for r in range(self.alto):
-            for c in range(self.ancho):
-                if self.celdas[r][c] == '"':
-                    return True
-        return False
-
-    def imprimir(self, vaca_f, vaca_c, tract_f, tract_c, turno):
-        print("\n======== TURNO", turno, "========")
-        for r in range(self.alto):
-            linea = ""
-            for c in range(self.ancho):
-                if r == vaca_f and c == vaca_c:
-                    linea += "V"
-                elif r == tract_f and c == tract_c:
-                    linea += "T"
-                else:
-                    linea += self.celdas[r][c]
-            print(linea)
-        print("===============================")
-
-
-# -----------------------------------------
-# Clase Vaca
-# -----------------------------------------
-class Vaca:
-    def __init__(self, fila, col):
-        self.fila = fila
-        self.col = col
-        self.movimientos = 0
-        self.mojones = []  # lista de [fila, col, turno_creacion]
-
-    def mover(self, terreno, direccion):
-        dr = 0
-        dc = 0
-        if direccion == 1:  # norte
-            dr = -1
-        elif direccion == 2:  # este
-            dc = 1
-        elif direccion == 3:  # sur
-            dr = 1
-        elif direccion == 4:  # oeste
-            dc = -1
-
-        nf = self.fila + dr
-        nc = self.col + dc
-
-        if terreno.dentro(nf, nc):
-            self.fila = nf
-            self.col = nc
-            if terreno.get(nf, nc) == '"':
-                terreno.set(nf, nc, ".")
-            self.movimientos += 1
-            if self.movimientos % 5 == 0:
-                terreno.set(nf, nc, "O")
-                self.mojones.append([nf, nc, 0])  # turno = 0 al crear
-
-    def actualizar_mojones(self, terreno):
-        nuevos = []
-        for m in self.mojones:
-            m[2] += 1
-            if m[2] >= 7:
-                # si aún es mojón, vuelve a hierba
-                if terreno.get(m[0], m[1]) == "O":
-                    terreno.set(m[0], m[1], '"')
+def pedir_num(mensaje, minimo, maximo):
+    ok = False
+    while not ok:
+        try:
+            n = int(input(mensaje))
+            if n < minimo or n > maximo:
+                print('valor fuera de rango')
             else:
-                nuevos.append(m)
-        self.mojones = nuevos
+                ok = True
+        except:
+            print('tienes que poner un numero')
+    return n
 
-class Tractor:
-    def __init__(self):
-        self.fila = 0
-        self.col = 0
+def crear_tablero(ancho, alto):
+    t = []
+    for i in range(alto):
+        fila = []
+        for j in range(ancho):
+            fila.append(HIERBA)
+        t.append(fila)
+    return t
 
-    def mover(self, terreno, direccion, vaca_f, vaca_c):
-        dr = 0
-        dc = 0
-        if direccion == 1:
-            dr = -1
-        elif direccion == 2:
-            dc = 1
-        elif direccion == 3:
-            dr = 1
-        elif direccion == 4:
-            dc = -1
+def mostrar_tablero(tab, pos_vaca, pos_tractor):
+    for y in range(len(tab)):
+        linea = ''
+        for x in range(len(tab[0])):
+            if x == pos_vaca[0] and y == pos_vaca[1]:
+                linea += VACA + ' '
+            elif x == pos_tractor[0] and y == pos_tractor[1]:
+                linea += TRACTOR + ' '
+            else:
+                linea += tab[y][x] + ' '
+        print(linea)
+    print()
 
-        pasos = 0
-        while pasos < 2:
-            nf = self.fila + dr
-            nc = self.col + dc
-            if not terreno.dentro(nf, nc):
-                break
-            if nf == vaca_f and nc == vaca_c:
-                break
-            if terreno.get(nf, nc) == "O":
-                terreno.set(nf, nc, ".")
-                self.fila = nf
-                self.col = nc
-                break
-            self.fila = nf
-            self.col = nc
-            pasos += 1
+def hay_hierba(tab):
+    for f in tab:
+        for c in f:
+            if c == HIERBA:
+                return True
+    return False
 
+dir = {
+    1: (0,-1),
+    2: (1,0),
+    3: (0,1),
+    4: (-1,0)
+}
 
-# -----------------------------------------
-# Juego Principal
-# -----------------------------------------
-def main():
-    print("JUEGO DE LA VACA Y CACAS")
-    ancho = int(input("Ancho del terreno: "))
-    alto = int(input("Alto del terreno: "))
+print('Juego de la vaca y el granjero')
+ancho = pedir_num('ancho del terreno (2-30): ',2,30)
+alto = pedir_num('alto del terreno (2-30): ',2,30)
 
-    vf = int(input("Fila inicial de la vaca: "))
-    vc = int(input("Columna inicial de la vaca: "))
+print('posicion inicial de la vaca:')
+vy = pedir_num('fila (0-{}): '.format(alto-1),0,alto-1)
+vx = pedir_num('columna (0-{}): '.format(ancho-1),0,ancho-1)
 
-    if vf == 0 and vc == 0:
-        print("La celda (0,0) es del tractor. Elige otra posición.")
-        sys.exit(0)
+vaca = [vx, vy]
+tractor = [0,0]
 
-    terreno = Terreno(ancho, alto)
-    vaca = Vaca(vf, vc)
-    tractor = Tractor()
+tab = crear_tablero(ancho, alto)
+tab[vaca[1]][vaca[0]] = VACIO
 
-    # La vaca come la hierba inicial donde está
-    terreno.set(vf, vc, ".")
+cacas = {}
+turno = 0
+movs_vaca = 0
 
-    turno = 0
+print('empieza el juego...')
 
-    while terreno.hay_hierba():
-        turno += 1
-        dir_v = random.randint(1, 4)
-        dir_t = random.randint(1, 4)
+while hay_hierba(tab):
+    turno += 1
+    # mover vaca
+    d = random.randint(1,4)
+    dx, dy = dir[d]
+    nx = vaca[0] + dx
+    ny = vaca[1] + dy
+    if nx>=0 and nx<ancho and ny>=0 and ny<alto:
+        # guarda posicion anterior
+        x_ant, y_ant = vaca[0], vaca[1]
+        vaca = [nx,ny]
+        if tab[ny][nx] == HIERBA:
+            tab[ny][nx] = VACIO
+        movs_vaca += 1
+        # cada 5 movimientos deja caca en la celda anterior
+        if movs_vaca % 5 == 0:
+            tab[y_ant][x_ant] = CACA
+            cacas[(x_ant,y_ant)] = turno
 
-        vaca.mover(terreno, dir_v)
-        vaca.actualizar_mojones(terreno)
-        tractor.mover(terreno, dir_t, vaca.fila, vaca.col)
+    # mover tractor (2 casillas)
+    dt = random.randint(1,4)
+    dxt, dyt = dir[dt]
+    for i in range(2):
+        ntx = tractor[0] + dxt
+        nty = tractor[1] + dyt
+        if ntx<0 or ntx>=ancho or nty<0 or nty>=alto:
+            break
+        if tab[nty][ntx] == CACA:
+            tab[nty][ntx] = VACIO
+            if (ntx,nty) in cacas:
+                del cacas[(ntx,nty)]
+            tractor = [ntx,nty]
+            break
+        else:
+            tractor = [ntx,nty]
 
-        terreno.imprimir(vaca.fila, vaca.col, tractor.fila, tractor.col, turno)
+    # regenerar hierba despues de 7 turnos
+    claves = list(cacas.keys())
+    for p in claves:
+        if turno - cacas[p] >= 7:
+            if tab[p[1]][p[0]] == CACA:
+                tab[p[1]][p[0]] = HIERBA
+            del cacas[p]
 
-        time.sleep(random.randint(1, 3))
+    print('Turno', turno)
+    mostrar_tablero(tab, vaca, tractor)
+    time.sleep(random.randint(1,3))
 
-    print("Fin del juego: no queda hierba.")
-    print("Turnos totales:", turno)
-
-
-if __name__ == "__main__":
-    main()
+print('La vaca ha limpiado toda la hierba! fin del juego')
